@@ -1,0 +1,15 @@
+# Go build artifacts
+*.exe
+*.test
+*.out
+
+# Env / secrets
+.env
+
+# Runtime-generated, not source
+/uploads/
+/fixed/
+
+# IDE
+.vscode/
+.idea/

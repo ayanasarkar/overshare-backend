@@ -17,3 +17,4 @@
 # Forge build artifacts
 contract-deploy/out/
 contract-deploy/cache/
+.env

@@ -1,0 +1,29 @@
+﻿services:
+  backend:
+    build: .
+    ports:
+      - "8081:8080"
+    environment:
+      - AI_SERVICE_URL=${AI_SERVICE_URL:-http://host.docker.internal:8001/analyze}
+      - RPC_URL=http://anvil:8545
+      - IPFS_API_URL=http://ipfs:5001
+      - CERTIFICATE_CONTRACT_ADDRESS=${CERTIFICATE_CONTRACT_ADDRESS:-}
+      - CERTIFIER_PRIVATE_KEY=${CERTIFIER_PRIVATE_KEY:-}
+    depends_on:
+      - anvil
+      - ipfs
+    restart: unless-stopped
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    command: "anvil --host 0.0.0.0 --port 8545"
+    ports:
+      - "8545:8545"
+    restart: unless-stopped
+
+  ipfs:
+    image: ipfs/kubo:latest
+    ports:
+      - "5001:5001"
+      - "4001:4001"
+    restart: unless-stopped

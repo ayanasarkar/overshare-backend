@@ -46,6 +46,10 @@ func ScanHandler(c *gin.Context) {
 	}
 
 	mediaType := c.DefaultPostForm("media_type", "image")
+	if mediaType != "image" && mediaType != "audio" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("unsupported media_type: %s", mediaType)})
+		return
+	}
 
 	if err := os.MkdirAll(uploadsDir, 0o755); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not prepare uploads dir"})

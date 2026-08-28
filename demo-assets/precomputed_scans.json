@@ -1,30 +1,42 @@
 {
-  "17307b1207eb6487d7908e9d154890b46e3d2e0192369cfd3f4c33d5a5af4035": {
-    "scan_id": "17307b1207eb6487d7908e9d154890b46e3d2e0192369cfd3f4c33d5a5af4035",
-    "image_hash": "17307b1207eb6487d7908e9d154890b46e3d2e0192369cfd3f4c33d5a5af4035",
-    "gps": {
-      "latitude": 37.7749,
-      "longitude": -122.4194,
-      "timestamp": "2026-03-14T10:22:00Z"
-    },
-    "text_regions": [
-      {
-        "text": "555-0142",
-        "box": { "x": 120, "y": 340, "width": 180, "height": 40 },
-        "confidence": 0.94,
-        "category": "phone"
-      }
-    ],
-    "objects": [
-      {
-        "label": "person",
-        "box": { "x": 60, "y": 80, "width": 300, "height": 420 },
-        "confidence": 0.91
-      }
-    ],
-    "document_flags": [],
-    "explanation": "This photo includes a visible phone number in the background text and GPS metadata pinpointing where it was taken.",
-    "face_match": null,
-    "source": "precomputed"
-  }
+    "17307b1207eb6487d7908e9d154890b46e3d2e0192369cfd3f4c33d5a5af4035":  {
+                                                                             "scan_id":  "17307b1207eb6487d7908e9d154890b46e3d2e0192369cfd3f4c33d5a5af4035",
+                                                                             "image_hash":  "17307b1207eb6487d7908e9d154890b46e3d2e0192369cfd3f4c33d5a5af4035",
+                                                                             "gps":  {
+                                                                                         "latitude":  37.7749,
+                                                                                         "longitude":  -122.4194,
+                                                                                         "timestamp":  "2026-03-14T10:22:00Z"
+                                                                                     },
+                                                                             "text_regions":  [
+                                                                                                  {
+                                                                                                      "text":  "555-0142",
+                                                                                                      "box":  {
+                                                                                                                  "x":  120,
+                                                                                                                  "y":  340,
+                                                                                                                  "width":  180,
+                                                                                                                  "height":  40
+                                                                                                              },
+                                                                                                      "confidence":  0.94,
+                                                                                                      "category":  "phone"
+                                                                                                  }
+                                                                                              ],
+                                                                             "objects":  [
+                                                                                             {
+                                                                                                 "label":  "person",
+                                                                                                 "box":  {
+                                                                                                             "x":  60,
+                                                                                                             "y":  80,
+                                                                                                             "width":  300,
+                                                                                                             "height":  420
+                                                                                                         },
+                                                                                                 "confidence":  0.91
+                                                                                             }
+                                                                                         ],
+                                                                             "document_flags":  [
+
+                                                                                                ],
+                                                                             "explanation":  "This photo includes a visible phone number in the background text and GPS metadata pinpointing where it was taken.",
+                                                                             "face_match":  null,
+                                                                             "source":  "precomputed"
+                                                                         }
 }

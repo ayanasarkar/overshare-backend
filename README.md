@@ -1,98 +1,106 @@
-# Overshare Backend (Go) — Scaffold
+# Overshare — Backend (Go)
 
-Starting scaffold for Ayana's backend track, matching the finalized v3 tech stack:
-Go + Gin, goexif, disintegration/imaging, precomputed-cache-first scan flow, and an
-opt-in IPFS + Anvil certify feature gated behind Fix 10.
+Backend service for Overshare: image scan (EXIF GPS + OCR/object/document
+flags), fix (strip metadata / blur regions), and certify (IPFS + local
+blockchain proof-of-fix). Built in Go with Gin.
 
-## Layout
+Part of a two-track project — see [Wrik's AI/ML + Frontend repo](https://github.com/Wriksg/OVERSHARE)
+for the counterpart service this talks to.
+
+## Status
+
+| Component | Status |
+|---|---|
+| `/api/scan` (Gin routes, cache-first lookup) | ✅ Working |
+| EXIF GPS extraction (`metadata/exif.go`) | ⚠️ Built, verified only via precomputed cache — live (cache-miss) path not yet tested |
+| Precomputed demo cache (`demo-assets/precomputed_scans.json`) | ⚠️ 1 of 5 curated images done |
+| `/api/fix` (strip metadata, blur regions) | ✅ Working — verified with real output file + visual check |
+| `/api/certify` (IPFS + local chain mint) | ✅ Working end-to-end — real mint tested (cert_id, tx_hash, IPFS CID all returned) |
+| Fix 10 gate (certify requires a fixed image first) | ✅ Verified, including against a re-scan edge case (see below) |
+| Live AI-service integration (`/ocr`, `/detect`, `/document-flags`, `/explain`) | ⛔ Not wired up yet — cache-miss scan calls fail cleanly with a clear error until Wrik's `ai_service` is live on `:8001` |
+
+## Architecture
 
 ```
-main.go                       Gin server, route wiring, opt-in certify client init
-models/schemas.go              the JSON contract — freeze with Wrik before overshareApi.js
-metadata/exif.go                ExtractGPSMetadata (A2) — no dependency on Wrik
-imaging/fix.go                   StripMetadata / BlurRegion (A4)
-handlers/scan.go, fix.go, certify.go
-store/store.go                    in-memory scan_id -> record map (demo-simple, not persistent)
-clients/ipfs_client.go              local Kubo upload over plain net/http
-clients/chain_client.go              go-ethereum ethclient, expects abigen bindings (see below)
-contracts/OvershareCertificate.sol   unchanged from the doc
-demo-assets/precomputed_scans.json   one example entry — needs real hashes, see below
+[Wrik's ai_service — FastAPI, :8001]
+        |
+        v  (only on a cache miss — judged demo path never reaches this)
+[this service — Go/Gin, :8080]  --(Kubo, local IPFS)--> IPFS
+                                 --(Anvil, local chain)--> OvershareCertificate.sol
+        |
+        v  REST: /api/scan, /api/fix, /api/certify
+[Wrik's React frontend]
 ```
 
-## What's implemented vs. stubbed
+## Running locally
 
-**Implemented and should work as written** once dependencies are resolved locally:
-GPS extraction, strip-metadata, blur-region, the cache-first check in `/api/scan`,
-the Fix 10 gate in `/api/certify`, and the IPFS upload (talks to Kubo's HTTP API
-directly — no extra Go IPFS library needed).
-
-**Stubbed on purpose:**
-
-- `callAIService` in `handlers/scan.go` — Wrik's `ai_service` isn't running anywhere
-  yet, so this returns an error rather than fake data. Wire it up to
-  `POST http://localhost:8001/ocr`, `/detect`, `/document-flags`, `/explain` once his
-  service is live. This is the only piece blocked on his side; everything else here
-  is yours to run standalone.
-- Contract bindings — `contracts/certificate.go` is a **hand-written binding built
-  directly from the ABI** (go-ethereum's `accounts/abi` + `accounts/abi/bind`), not
-  abigen output. This is a deliberate deviation from the doc's B6, which called for
-  generating bindings with `abigen`: doing it this way removes an entire toolchain
-  step (installing/running `abigen`, wiring Foundry's build output into it) for two
-  people to keep in sync, with no functional difference — `chain_client.go` calls it
-  exactly the same way it would call abigen output. If you'd rather follow B6 as
-  written, delete `contracts/certificate.go` and generate a replacement with:
-  ```bash
-  forge build
-  jq '.abi' out/OvershareCertificate.sol/OvershareCertificate.json > contracts/OvershareCertificate.abi
-  abigen --abi=contracts/OvershareCertificate.abi --pkg=contracts --type=OvershareCertificate --out=contracts/certificate.go
-  ```
-
-## Getting it running locally
-
-This was written in a sandbox with restricted network egress (only a handful of
-domains reachable — not the Go module proxy, `golang.org`, or `gopkg.in`), so it
-hasn't gone through a real `go build`. What *was* verified here:
-
-- Every file is syntactically valid and gofmt-clean (`gofmt -l .` reports nothing).
-- `go mod tidy` got partway through resolving go-ethereum's dependency tree before
-  hitting a blocked vanity-import domain — encouraging, but not a full build.
-
-On your machine, with normal internet access:
+Requires: Go, Tesseract (for the live/cache-miss OCR path), and — only if
+you want certify working — [Foundry](https://getfoundry.sh) (Anvil) and
+[Kubo](https://docs.ipfs.tech/install/command-line/) (IPFS).
 
 ```bash
-go mod tidy     # resolves versions, generates go.sum
-go build ./...  # should succeed end-to-end — contracts/certificate.go means the
-                # certify path no longer waits on a separate abigen step
+go run .
 ```
 
-go-ethereum pulls in a large transitive dependency tree, so the first `go mod tidy`
-will take a minute and download a lot — that's normal for this library, not specific
-to anything here.
+Core scan/fix path works with nothing else running. Certify is opt-in —
+without the env vars below, the server logs `certify feature disabled`
+and scan/fix are unaffected (verified: the core path works with those
+services entirely stopped).
 
-Run just the core path (no certify):
-```bash
-go run main.go
+### Enabling certify
+
+1. Start Anvil: `anvil` (separate terminal, leave running)
+2. Deploy the contract:
+   ```bash
+   cd contract-deploy
+   forge build
+   forge create src/OvershareCertificate.sol:OvershareCertificate \
+     --rpc-url http://127.0.0.1:8545 \
+     --private-key <anvil-account-0-private-key> \
+     --broadcast
+   ```
+3. Start Kubo: `ipfs daemon` (separate terminal, leave running).
+   Note: Kubo's Gateway defaults to port 8080, which collides with this
+   server. Point it elsewhere first:
+   ```bash
+   ipfs config Addresses.Gateway /ip4/127.0.0.1/tcp/8081
+   ```
+4. Set env vars and start the Go server:
+   ```powershell
+   $env:CERTIFICATE_CONTRACT_ADDRESS="<deployed address>"
+   $env:ANVIL_RPC_URL="http://localhost:8545"
+   $env:CERTIFIER_PRIVATE_KEY="<anvil account 0 private key, no 0x prefix>"
+   go run .
+   ```
+   Confirm the startup log shows `certify feature enabled (IPFS + Anvil connected)`.
+
+## Known limitations
+
+- **In-memory store** (`store/store.go`) does not survive a server
+  restart — by design for demo scope, but every scan/fix record is lost
+  on restart. Re-run scan → fix before testing certify after any restart.
+- **Precomputed cache is incomplete** — only 1 of the 5 planned curated
+  demo images has real data in `demo-assets/precomputed_scans.json`.
+
+## Bug fixed during testing
+
+Re-scanning an already-fixed image used to silently wipe its
+`FixedImagePath`, because the cache-hit branch in `scan.go` created a
+fresh store record on every call instead of preserving existing fix
+state. Fixed by checking for an existing record and carrying its
+`FixedImagePath` forward before overwriting. Verified by reproducing the
+failure, applying the fix, and re-running the same sequence.
+
+## Repo layout
+
 ```
-
-For certify, set these first — only then does `main.go` wire up IPFS + chain:
-```bash
-export CERTIFICATE_CONTRACT_ADDRESS=0x...   # from `forge create` output
-export ANVIL_RPC_URL=http://localhost:8545   # default Anvil RPC
-export IPFS_API_URL=http://localhost:5001    # default Kubo API
-export CERTIFIER_PRIVATE_KEY=0x...           # one of Anvil's pre-funded test keys
+handlers/     — /api/scan, /api/fix, /api/certify
+metadata/     — EXIF GPS extraction
+imaging/      — strip-metadata / blur-region fix actions
+clients/      — IPFS (Kubo) and chain (Anvil/go-ethereum) clients
+contracts/    — hand-written Go binding for OvershareCertificate.sol
+models/       — shared request/response schemas (contract with frontend)
+store/        — in-memory scan/fix record store
+demo-assets/  — precomputed_scans.json (curated demo cache)
+contract-deploy/ — standalone Foundry project for deploying the contract
 ```
-
-If those aren't set, the server still starts and `/api/scan` + `/api/fix` work fully —
-this makes the No-Lag Checklist's "unplug wifi and confirm scan/fix still works" an
-actual runtime property, not just something to remember to test manually.
-
-## Before this is demo-ready
-
-1. Wire `callAIService` to Wrik's routes once his `ai_service` is up.
-2. Deploy the contract with `forge create` and set `CERTIFICATE_CONTRACT_ADDRESS`
-   (and the other certify env vars) to actually exercise `/api/certify`.
-3. Replace the placeholder key in `demo-assets/precomputed_scans.json` with the real
-   sha256 of each of the 5 curated images (same hashing `handlers/scan.go` does at
-   runtime — run the file through `sha256sum` or a small Go one-liner, don't hand-type it).
-4. `go mod tidy` + a full local build — this compiled cleanly by hand-inspection and
-   gofmt in this sandbox, but a real build hasn't been run (see below).

@@ -13,3 +13,7 @@
 # IDE
 .vscode/
 .idea/
+
+# Forge build artifacts
+contract-deploy/out/
+contract-deploy/cache/
